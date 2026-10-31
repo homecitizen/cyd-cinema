@@ -7,14 +7,16 @@
 #include <TFT_eSPI.h>
 #include "ui_cinema.h"
 
-// Puntero global para la función de callback de TJpg_Decoder
+// Puntero global para la funcion de callback de TJpg_Decoder
 static TFT_eSPI* _globalTft = nullptr;
 
 static bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) {
     if (!_globalTft) return false;
-    // Limitar al área designada del póster
-    if (x >= POSTER_X + POSTER_W || y >= POSTER_Y + POSTER_H) return false;
-    _globalTft->pushImage(x, y, w, h, bitmap);
+    // Solo dibujar si entra dentro de la pantalla
+    if (x < SCREEN_W && y < SCREEN_H) {
+        _globalTft->pushImage(x, y, w, h, bitmap);
+    }
+    // IMPORTANTE: siempre retornar true para no abortar la decodificacion del JPEG
     return true;
 }
 
@@ -32,35 +34,34 @@ public:
         if (WiFi.status() != WL_CONNECTED) return false;
 
         WiFiClientSecure client;
-        client.setInsecure(); // No validar certificados SSL para ahorrar RAM y evitar bloqueos
+        client.setInsecure(); // No validar certificados SSL para ahorrar RAM
         client.setTimeout(6);
 
         HTTPClient https;
         https.setUserAgent("ESP32-Cinema/1.0");
 
         if (!https.begin(client, url)) {
-            Serial.println("[Póster] Error en https.begin");
+            Serial.println("[Poster] Error en https.begin");
             return false;
         }
 
         int httpCode = https.GET();
         if (httpCode != HTTP_CODE_OK) {
-            Serial.printf("[Póster] HTTP GET fallo: %d\n", httpCode);
+            Serial.printf("[Poster] HTTP GET fallo: %d\n", httpCode);
             https.end();
             return false;
         }
 
         int len = https.getSize();
-        if (len <= 0 || len > 45000) { // Límite de seguridad de RAM
-            Serial.printf("[Póster] Tamaño no compatible: %d bytes\n", len);
+        if (len <= 0 || len > 50000) {
+            Serial.printf("[Poster] Tamano no compatible: %d bytes\n", len);
             https.end();
             return false;
         }
 
-        // Asignar buffer temporal en heap
         uint8_t* buffer = (uint8_t*)malloc(len);
         if (!buffer) {
-            Serial.println("[Póster] Memoria insuficiente en heap");
+            Serial.println("[Poster] Memoria insuficiente en heap");
             https.end();
             return false;
         }
@@ -83,17 +84,15 @@ public:
         https.end();
 
         if (bytesRead != len) {
-            Serial.printf("[Póster] Descarga incompleta (%d/%d)\n", bytesRead, len);
+            Serial.printf("[Poster] Descarga incompleta (%d/%d)\n", bytesRead, len);
             free(buffer);
             return false;
         }
 
-        // Decodificar y dibujar en pantalla
-        Serial.printf("[Póster] Decodificando JPEG (%d bytes)...\n", len);
+        Serial.printf("[Poster] Decodificando JPEG (%d bytes)...\n", len);
         TJpgDec.drawJpg(POSTER_X, POSTER_Y, buffer, len);
         free(buffer);
 
-        // Marco sutil alrededor del póster
         tft.drawRoundRect(POSTER_X - 1, POSTER_Y - 1, POSTER_W + 2, POSTER_H + 2, 4, CLR_LB_BORDER);
         return true;
     }

@@ -4,6 +4,7 @@
 #include <Preferences.h>
 #include <time.h>
 #include <TFT_eSPI.h>
+#include <TJpg_Decoder.h>
 
 #include "config.h"
 #include "movies_db.h"
@@ -29,7 +30,7 @@ static bool          apModeActive    = false;
 static MovieTheme    activeSeasonTheme = THEME_ALL_YEAR;
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  PORTAL CAUTIVO / CONFIGURACIÓN WEB WI-FI
+//  PORTAL CAUTIVO / CONFIGURACION WEB WI-FI
 // ═══════════════════════════════════════════════════════════════════════════
 const char CONFIG_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -50,11 +51,11 @@ const char CONFIG_HTML[] PROGMEM = R"rawliteral(
 </head>
 <body>
   <div class="card">
-    <h1>🎬 CYD Cinema</h1>
-    <p>Introduce la red Wi-Fi para que tu pantalla descargue los pósters y recomendaciones de cine en tiempo real.</p>
+    <h1>CYD Cinema</h1>
+    <p>Introduce la red Wi-Fi para que tu pantalla descargue mas recomendaciones y listas en tiempo real.</p>
     <form method="POST" action="/save">
       <input type="text" name="ssid" placeholder="Nombre de red (SSID)" required><br>
-      <input type="password" name="pass" placeholder="Contraseña Wi-Fi"><br>
+      <input type="password" name="pass" placeholder="Contrasena Wi-Fi"><br>
       <button type="submit">Guardar y Conectar</button>
     </form>
   </div>
@@ -90,12 +91,12 @@ void startConfigAP() {
     webServer.on("/save", HTTP_POST, handleSave);
     webServer.begin();
 
-    Serial.println("\n[Wi-Fi AP] Modo configuración iniciado");
-    Serial.printf("[Wi-Fi AP] Conéctate a '%s' y entra en http://%s\n", AP_SSID, IP.toString().c_str());
+    Serial.println("\n[Wi-Fi AP] Modo configuracion iniciado");
+    Serial.printf("[Wi-Fi AP] Conectate a '%s' y entra en http://%s\n", AP_SSID, IP.toString().c_str());
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  DETECCIÓN DE TEMPORADA / FECHA
+//  DETECCION DE TEMPORADA / FECHA
 // ═══════════════════════════════════════════════════════════════════════════
 void updateSeasonTheme() {
     time_t now = time(nullptr);
@@ -107,24 +108,24 @@ void updateSeasonTheme() {
         // Temporada Halloween: 15 de octubre a 4 de noviembre
         if ((month == 10 && day >= 15) || (month == 11 && day <= 4)) {
             activeSeasonTheme = THEME_HALLOWEEN;
-            Serial.println("[Temporada] 🎃 Modo Halloween activo");
+            Serial.println("[Temporada] Modo Halloween activo");
         }
         // Temporada Navidad: 1 de diciembre a 6 de enero
         else if (month == 12 || (month == 1 && day <= 6)) {
             activeSeasonTheme = THEME_CHRISTMAS;
-            Serial.println("[Temporada] 🎄 Modo Navidad activo");
+            Serial.println("[Temporada] Modo Navidad activo");
         }
         else {
             activeSeasonTheme = THEME_ALL_YEAR;
         }
     } else {
-        // Si no hay fecha de NTP, por defecto activar Halloween hoy 31 de octubre
+        // Por defecto en esta fecha: Especial Halloween
         activeSeasonTheme = THEME_HALLOWEEN;
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  CAMBIO DE PELÍCULA
+//  RENDERIZADO Y CAMBIO DE PELICULA
 // ═══════════════════════════════════════════════════════════════════════════
 void displayMovie(int idx) {
     if (idx < 0) idx = TOTAL_EMBEDDED_MOVIES - 1;
@@ -132,17 +133,28 @@ void displayMovie(int idx) {
     currentMovieIdx = idx;
 
     const MovieItem& movie = EMBEDDED_MOVIES[currentMovieIdx];
-    Serial.printf("\n[Cine] Mostrando: %s (%d) — %s\n", movie.title, movie.year, movie.tag);
+    Serial.printf("\n[Cine] Mostrando: %s (%d) - %s\n", movie.title, movie.year, movie.tag);
 
-    // 1. Renderizar ficha y placeholder
-    ui.renderMovie(movie, false);
+    // 1. Dibujar informacion de texto, valoracion y estilo Letterboxd
+    ui.renderMovieInfo(movie);
 
-    // 2. Si hay Wi-Fi, descargar póster JPEG en vivo
-    if (wifiConnected && movie.posterUrl && strlen(movie.posterUrl) > 10) {
-        bool ok = posterFetcher.fetchAndDisplay(movie.posterUrl);
-        if (!ok) {
-            Serial.println("[Póster] Mostrando tarjeta vectorial por defecto");
-        }
+    // 2. Renderizar el POSTER REAL (108x162 px)
+    bool posterDrawn = false;
+
+    // A) Poster real pre-integrado en Flash (carga instantanea y offline)
+    if (movie.posterData && movie.posterLen > 0) {
+        TJpgDec.drawJpg(POSTER_X, POSTER_Y, movie.posterData, movie.posterLen);
+        tft.drawRoundRect(POSTER_X - 1, POSTER_Y - 1, POSTER_W + 2, POSTER_H + 2, 4, CLR_LB_BORDER);
+        posterDrawn = true;
+    }
+    // B) Si no estuviera integrado pero hay conexion Wi-Fi, descargarlo en vivo
+    else if (wifiConnected && movie.posterUrl && strlen(movie.posterUrl) > 10) {
+        posterDrawn = posterFetcher.fetchAndDisplay(movie.posterUrl);
+    }
+
+    // C) Fallback solo si fallaran ambos
+    if (!posterDrawn) {
+        ui.drawPlaceholderPoster(movie);
     }
 
     lastSlideChange = millis();
@@ -151,7 +163,7 @@ void displayMovie(int idx) {
 void nextMovie() {
     int nextIdx = (currentMovieIdx + 1) % TOTAL_EMBEDDED_MOVIES;
     
-    // Si estamos en una temporada específica, buscar la siguiente de esa temática
+    // Si estamos en una temporada tematica (ej: Halloween), buscar la siguiente de esa categoria
     if (activeSeasonTheme != THEME_ALL_YEAR) {
         int tries = 0;
         while (EMBEDDED_MOVIES[nextIdx].theme != activeSeasonTheme && tries < TOTAL_EMBEDDED_MOVIES) {
@@ -180,7 +192,7 @@ void prevMovie() {
 void showSplashScreen() {
     tft.fillScreen(CLR_LB_BG);
 
-    // Tres círculos Letterboxd
+    // Tres circulos Letterboxd
     int cx = SCREEN_W / 2;
     tft.fillCircle(cx - 24, 70, 8, CLR_LB_ORANGE);
     tft.fillCircle(cx,      70, 8, CLR_LB_GREEN);
@@ -211,14 +223,19 @@ void setup() {
     tft.setRotation(TFT_ROTATION);
     tft.fillScreen(CLR_LB_BG);
 
-    // Encender retroiluminación
+    // Encender retroiluminacion
     pinMode(21, OUTPUT);
     digitalWrite(21, HIGH);
 
     showSplashScreen();
 
-    // Inicializar controlador táctil
+    // Inicializar controlador tactil
     touchController.begin();
+
+    // Configurar decodificador JPEG para posters
+    TJpgDec.setJpgScale(1);
+    TJpgDec.setSwapBytes(true);
+    TJpgDec.setCallback(tft_output);
 
     // Leer credenciales Wi-Fi (de config.h o de memoria NVRAM)
     prefs.begin("cyd-cinema", true);
@@ -247,19 +264,19 @@ void setup() {
             delay(500);
             updateSeasonTheme();
         } else {
-            Serial.println("\n[Wi-Fi] No se pudo conectar.");
+            Serial.println("\n[Wi-Fi] No se pudo conectar a la red.");
         }
     } else {
         Serial.println("[Wi-Fi] Sin red configurada. Iniciando portal de configuracion.");
         startConfigAP();
     }
 
-    // Si estamos en temporada de Halloween, empezar directamente por The Shining
+    // Por defecto hoy en Halloween empezar en The Shining
     if (activeSeasonTheme == THEME_HALLOWEEN) {
         currentMovieIdx = 0;
     }
 
-    delay(800);
+    delay(600);
     displayMovie(currentMovieIdx);
 }
 
@@ -267,35 +284,35 @@ void setup() {
 //  LOOP
 // ═══════════════════════════════════════════════════════════════════════════
 void loop() {
-    // 1. Si el portal Wi-Fi está activo, atender clientes
+    // 1. Si el portal Wi-Fi esta activo, atender clientes
     if (apModeActive) {
         webServer.handleClient();
     }
 
-    // 2. Detección de toques en la pantalla
+    // 2. Deteccion de toques en la pantalla
     int touchX = 0, touchY = 0;
     if (touchController.checkTouch(touchX, touchY)) {
         Serial.printf("[Touch] Coordenadas: X=%d, Y=%d\n", touchX, touchY);
 
-        // Si se toca la mitad izquierda (área del póster / indicador inferior):
-        // Conmutar entre la Cita célebre y la Sinopsis completa
-        if (touchX < (POSTER_X + POSTER_W + 10)) {
+        // Mitad izquierda (poster o pie de pagina de sinopsis):
+        // Alternar entre la Cita celebre y la Sinopsis detallada
+        if (touchX < (POSTER_X + POSTER_W + 12)) {
             ui.toggleView();
             displayMovie(currentMovieIdx);
         }
-        // Si se toca la mitad derecha (área de texto):
-        // Pasar a la siguiente recomendación inmediatamente
+        // Mitad derecha (informacion):
+        // Pasar a la siguiente pelicula recomendada
         else {
             nextMovie();
         }
     }
 
-    // 3. Cambio automático tras cumplirse el intervalo de tiempo
+    // 3. Cambio automatico tras cumplirse el intervalo de tiempo
     if (millis() - lastSlideChange >= (SLIDE_INTERVAL_SEC * 1000UL)) {
         nextMovie();
     }
 
-    // 4. Comandos por consola serie USB (útil cuando está conectado al PC)
+    // 4. Comandos por consola serie USB
     if (Serial.available()) {
         String cmd = Serial.readStringUntil('\n');
         cmd.trim();
