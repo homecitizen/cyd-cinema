@@ -9,24 +9,24 @@ Dispositivo de sobremesa autónomo que muestra recomendaciones de películas, p�
 
 ## ✨ Características principales
 
-1. **Detección Estacional Inteligente (NTP)**:
-   - 🎃 **Especial Halloween / Terror** *(Octubre / Noviembre)*: Clásicos del horror (*The Shining, Halloween, Scream, Psycho, Alien, Hereditary, The Thing, The Silence of the Lambs...*).
-   - 🎄 **Especial Navidad / Invierno** *(Diciembre / Enero)*: Cine navideño icónico (*Die Hard, Home Alone, It's a Wonderful Life, Klaus, The Nightmare Before Christmas...*).
-   - 🎂 **Aniversarios de Cine**: Conmemoración de obras maestras (*Pulp Fiction, The Matrix, Interstellar, Jaws...*).
-   - ⭐ **Top Letterboxd & Clásicos de Culto**: *Parasite, Whiplash, Blade Runner 2049, Fight Club, Spirited Away, La La Land, The Godfather...*
-2. **Estética 100% Letterboxd**:
-   - Paleta de color oscura: fondo carbón `#14181C`, paneles `#202830`, verde `#00E054`, naranja `#FF8000` y cian `#40BCF4`.
+1. **Calendario Dinámico los 365 Días del Año**:
+   - 📅 **Película del Día**: Cada día a medianoche se calcula matemáticamente una película destacada del día con insignia dedicada y la fecha en pantalla (ej: `31 OCT`, `01 NOV`).
+   - 🎃 **Especial Halloween / Terror** *(15 Oct – 4 Nov)*: *The Shining, Halloween, Scream, Psycho, Alien, The Thing, The Silence of the Lambs, Hereditary...*
+   - 🎄 **Especial Navidad / Invierno** *(1 Dic – 6 Ene)*: *Die Hard, Home Alone, The Nightmare Before Christmas, It's a Wonderful Life...*
+   - 🏆 **Temporada de Premios Oscar** *(15 Ene – 15 Mar)*: *Parasite, The Godfather, Whiplash, The Silence of the Lambs...*
+   - ⭐ **Grandes Hitos y Top Letterboxd** *(Resto del año)*: *Pulp Fiction, The Matrix, Interstellar, Blade Runner 2049, Fight Club...*
+2. **Curiosidades y Anécdotas de Rodaje**:
+   - Cada película incluye datos reales de producción, secretos de set y anécdotas de rodaje (por ejemplo, las hachas reales de Kubrick en *The Shining*, la máscara del Capitán Kirk de 2$ en *Halloween*, las llamadas reales del doblador en *Scream* o el chocolate usado en la ducha de *Psycho*).
+3. **Estética 100% Letterboxd**:
+   - Paleta de color oscura: fondo carbón `#14181C`, paneles `#1F252B`, verde `#00E054`, naranja `#FF8000` y cian `#40BCF4`.
    - Valoración por estrellas (ej: `★ 4.3 / 5`).
    - Logotipo de los tres círculos icónicos de Letterboxd.
-3. **Pósters en vivo por Wi-Fi**:
-   - Descarga directa de carátulas JPEG ligeras (TMDb / CDN) decodificadas por hardware con `TJpg_Decoder`.
-   - **Modo Offline**: Si no hay conexión Wi-Fi, la pantalla muestra elegantes tarjetas vectoriales con rollos de celuloide y el catálogo integrado (nunca se queda en blanco).
-4. **Pantalla Táctil Interactiva (XPT2046)**:
-   - **Tocar la mitad derecha**: Pasa inmediatamente a la siguiente película.
-   - **Tocar la mitad izquierda (póster / botón inferior)**: Alterna entre la **Cita Célebre** y la **Sinopsis completa**.
-   - **Rotación automática**: Cambia de película cada 35 segundos (configurable en `config.h`).
-5. **Configuración Wi-Fi sin complicaciones**:
-   - Si no introduces tu red en `src/config.h`, el ESP32 crea automáticamente una red Wi-Fi llamada `CYD-Cinema-Setup`. Conéctate con tu móvil, entra en `http://192.168.4.1` y guarda tu Wi-Fi.
+4. **Pósters Oficiales TMDb Integrados**:
+   - Pósters oficiales de $108 \times 162$ px renderizados en Flash con `TJpg_Decoder` en menos de 18 ms.
+5. **Navegación Táctil e Inteligente**:
+   - **Tocar la mitad izquierda (póster / botón inferior)**: Alterna cíclicamente entre **Cita Célebre** ➔ **Curiosidad de Rodaje** ➔ **Sinopsis**.
+   - **Tocar la mitad derecha**: Pasa inmediatamente a la siguiente recomendación.
+   - **Rotación automática inteligente**: Muestra la Cita, tras el intervalo revela la Curiosidad de rodaje y luego avanza a la siguiente película.
 
 ---
 

@@ -22,13 +22,21 @@ CinemaTouch     touchController;
 WebServer       webServer(80);
 Preferences     prefs;
 
+static const char* MONTH_NAMES[] = {
+    "ENE", "FEB", "MAR", "ABR", "MAY", "JUN",
+    "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"
+};
+
 // Estado del recomendador
+static MovieView     currentView       = VIEW_QUOTE;
 static int           currentMovieIdx   = 0;
+static int           filmOfTheDayIdx   = 0;
+static char          currentDateStr[16] = "";
+static int           lastDayRecorded   = -1;
 static unsigned long lastSlideChange   = 0;
 static bool          wifiConnected     = false;
 static bool          apModeActive      = false;
-static bool          isSynopsisView    = false;
-static MovieTheme    activeSeasonTheme = THEME_ALL_YEAR;
+static MovieTheme    activeSeasonTheme = THEME_HALLOWEEN;
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  PORTAL CAUTIVO / CONFIGURACION WEB WI-FI
@@ -53,7 +61,7 @@ const char CONFIG_HTML[] PROGMEM = R"rawliteral(
 <body>
   <div class="card">
     <h1>CYD Cinema</h1>
-    <p>Introduce la red Wi-Fi para que tu pantalla descargue mas recomendaciones y listas en tiempo real.</p>
+    <p>Introduce la red Wi-Fi para sincronizar fecha, hora y listas en tiempo real.</p>
     <form method="POST" action="/save">
       <input type="text" name="ssid" placeholder="Nombre de red (SSID)" required><br>
       <input type="password" name="pass" placeholder="Contrasena Wi-Fi"><br>
@@ -97,65 +105,78 @@ void startConfigAP() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  DETECCION DE TEMPORADA / FECHA
+//  CALENDARIO DINAMICO Y TEMPORADAS DE TODO EL ANO
 // ═══════════════════════════════════════════════════════════════════════════
-void updateSeasonTheme() {
+void updateCalendarAndSeason() {
     time_t now = time(nullptr);
     struct tm timeinfo;
     if (localtime_r(&now, &timeinfo) && timeinfo.tm_year > (2020 - 1900)) {
         int month = timeinfo.tm_mon + 1; // 1 - 12
         int day   = timeinfo.tm_mday;
+        int yday  = timeinfo.tm_yday;    // 0 - 365
 
-        // Temporada Halloween: 15 de octubre a 4 de noviembre
+        snprintf(currentDateStr, sizeof(currentDateStr), "%02d %s", day, MONTH_NAMES[timeinfo.tm_mon]);
+
+        // Pelicula destacada del dia (cambia cada dia del ano matematicamente)
+        filmOfTheDayIdx = yday % TOTAL_EMBEDDED_MOVIES;
+
+        // 1. Halloween y Terror (15 Oct - 4 Nov)
         if ((month == 10 && day >= 15) || (month == 11 && day <= 4)) {
             activeSeasonTheme = THEME_HALLOWEEN;
-            Serial.println("[Temporada] Modo Halloween activo");
+            Serial.printf("[Calendario] %s -> Especial Halloween activo\n", currentDateStr);
         }
-        // Temporada Navidad: 1 de diciembre a 6 de enero
+        // 2. Cine Navideno (1 Dic - 6 Ene)
         else if (month == 12 || (month == 1 && day <= 6)) {
             activeSeasonTheme = THEME_CHRISTMAS;
-            Serial.println("[Temporada] Modo Navidad activo");
+            Serial.printf("[Calendario] %s -> Especial Navidad activo\n", currentDateStr);
         }
+        // 3. Temporada Premios Oscar y Grandes Obras (15 Ene - 15 Mar)
+        else if ((month == 1 && day > 6) || month == 2 || (month == 3 && day <= 15)) {
+            activeSeasonTheme = THEME_OSCARS;
+            Serial.printf("[Calendario] %s -> Temporada Oscar y Obras Maestras\n", currentDateStr);
+        }
+        // 4. Resto del ano: Catalogo continuo con Pelicula del Dia
         else {
             activeSeasonTheme = THEME_ALL_YEAR;
+            Serial.printf("[Calendario] %s -> Modo Anual Letterboxd\n", currentDateStr);
         }
     } else {
+        snprintf(currentDateStr, sizeof(currentDateStr), "31 OCT");
         activeSeasonTheme = THEME_HALLOWEEN;
+        filmOfTheDayIdx = 0; // The Shining por defecto
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  RENDERIZADO Y CAMBIO DE PELICULA
+//  RENDERIZADO Y NAVEGACION
 // ═══════════════════════════════════════════════════════════════════════════
 void displayMovie(int idx) {
     if (idx < 0) idx = TOTAL_EMBEDDED_MOVIES - 1;
-    if (idx >= TOTAL_EMBEDDED_MOVIES) idx = 0;
+    if (idx >= (int)TOTAL_EMBEDDED_MOVIES) idx = 0;
     currentMovieIdx = idx;
 
     const MovieItem& movie = EMBEDDED_MOVIES[currentMovieIdx];
-    Serial.printf("\n[Cine] Mostrando: %s (%d) - %s\n", movie.title, movie.year, movie.tag);
+    bool isFilmOfDay = (currentMovieIdx == filmOfTheDayIdx);
+    const char* viewName = (currentView == VIEW_QUOTE) ? "Cita" : (currentView == VIEW_CURIOSITY ? "Curiosidad" : "Sinopsis");
+    Serial.printf("\n[Cine] Mostrando: %s (%d) [%s] (Vista: %s)\n", 
+                  movie.title, movie.year, movie.tag, viewName);
 
-    // 1. Limpiar pantalla COMPLETA (garantiza eliminar cualquier texto o rastro previo)
+    // 1. Limpieza de pantalla completa
     tft.fillScreen(CLR_LB_BG);
 
-    // 2. Dibujar informacion de texto, valoracion y estilo Letterboxd
-    ui.renderMovie(movie, isSynopsisView);
+    // 2. Dibujar informacion, badges, valoracion y contenido segun vista activa
+    ui.renderMovie(movie, currentView, currentDateStr, isFilmOfDay);
 
-    // 3. Renderizar el POSTER REAL (108x162 px exactos)
+    // 3. Renderizar el poster oficial JPEG
     bool posterDrawn = false;
-
-    // A) Poster real pre-integrado en Flash (carga instantanea y 100% offline)
     if (movie.posterData && movie.posterLen > 0) {
         TJpgDec.drawJpg(POSTER_X, POSTER_Y, movie.posterData, movie.posterLen);
         tft.drawRoundRect(POSTER_X - 1, POSTER_Y - 1, POSTER_W + 2, POSTER_H + 2, 4, CLR_LB_BORDER);
         posterDrawn = true;
-    }
-    // B) Descarga Wi-Fi si hay conexion
-    else if (wifiConnected && movie.posterUrl && strlen(movie.posterUrl) > 10) {
+    } else if (wifiConnected && movie.posterUrl && strlen(movie.posterUrl) > 10) {
         posterDrawn = posterFetcher.fetchAndDisplay(movie.posterUrl);
     }
 
-    // C) Fallback
     if (!posterDrawn) {
         ui.drawPlaceholderPoster(movie);
     }
@@ -164,7 +185,7 @@ void displayMovie(int idx) {
 }
 
 void nextMovie() {
-    isSynopsisView = false; // Resetear a cita en la siguiente pelicula
+    currentView = VIEW_QUOTE; // Cada nueva pelicula arranca mostrando su cita mitica
     int nextIdx = (currentMovieIdx + 1) % TOTAL_EMBEDDED_MOVIES;
     
     if (activeSeasonTheme != THEME_ALL_YEAR) {
@@ -178,7 +199,7 @@ void nextMovie() {
 }
 
 void prevMovie() {
-    isSynopsisView = false;
+    currentView = VIEW_QUOTE;
     int prevIdx = (currentMovieIdx - 1 + TOTAL_EMBEDDED_MOVIES) % TOTAL_EMBEDDED_MOVIES;
     if (activeSeasonTheme != THEME_ALL_YEAR) {
         int tries = 0;
@@ -188,30 +209,6 @@ void prevMovie() {
         }
     }
     displayMovie(prevIdx);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  PANTALLA DE INICIO (SPLASH)
-// ═══════════════════════════════════════════════════════════════════════════
-void showSplashScreen() {
-    tft.fillScreen(CLR_LB_BG);
-
-    // Tres circulos Letterboxd
-    int cx = SCREEN_W / 2;
-    tft.fillCircle(cx - 24, 70, 8, CLR_LB_ORANGE);
-    tft.fillCircle(cx,      70, 8, CLR_LB_GREEN);
-    tft.fillCircle(cx + 24, 70, 8, CLR_LB_CYAN);
-
-    tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
-    tft.setTextDatum(TC_DATUM);
-    tft.drawString("CYD CINEMA", cx, 96, 4);
-
-    tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
-    tft.drawString("Recomendador de Peliculas", cx, 126, 2);
-    tft.drawString("Estilo Letterboxd", cx, 146, 2);
-
-    tft.setTextColor(CLR_LB_GREEN, CLR_LB_BG);
-    tft.drawString("Iniciando...", cx, 185, 2);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -226,12 +223,7 @@ void setup() {
     tft.init();
     tft.setRotation(TFT_ROTATION);
     tft.fillScreen(CLR_LB_BG);
-
-    // Encender retroiluminacion
-    pinMode(21, OUTPUT);
-    digitalWrite(21, HIGH);
-
-    showSplashScreen();
+    tft.setSwapBytes(true);
 
     // Inicializar controlador tactil
     touchController.begin();
@@ -241,10 +233,10 @@ void setup() {
     TJpgDec.setSwapBytes(true);
     TJpgDec.setCallback(tft_output);
 
-    // Leer credenciales Wi-Fi (de config.h o de memoria NVRAM)
+    // Conectar Wi-Fi si hay credenciales guardadas o por defecto
     prefs.begin("cyd-cinema", true);
-    String ssid = prefs.getString("ssid", String(WIFI_SSID));
-    String pass = prefs.getString("pass", String(WIFI_PASS));
+    String ssid = prefs.getString("ssid", WIFI_SSID);
+    String pass = prefs.getString("pass", WIFI_PASS);
     prefs.end();
 
     if (ssid.length() > 0) {
@@ -252,9 +244,9 @@ void setup() {
         WiFi.mode(WIFI_STA);
         WiFi.begin(ssid.c_str(), pass.c_str());
 
-        unsigned long startConnect = millis();
-        while (WiFi.status() != WL_CONNECTED && (millis() - startConnect < WIFI_TIMEOUT_SEC * 1000)) {
-            delay(300);
+        int timeout = WIFI_TIMEOUT_SEC * 2;
+        while (WiFi.status() != WL_CONNECTED && timeout-- > 0) {
+            delay(500);
             Serial.print(".");
         }
 
@@ -265,20 +257,20 @@ void setup() {
 
             configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET, NTP_SERVER);
             delay(500);
-            updateSeasonTheme();
+            updateCalendarAndSeason();
         } else {
             Serial.println("\n[Wi-Fi] No se pudo conectar a la red.");
+            updateCalendarAndSeason();
         }
     } else {
         Serial.println("[Wi-Fi] Sin red configurada. Iniciando portal de configuracion.");
         startConfigAP();
+        updateCalendarAndSeason();
     }
 
-    if (activeSeasonTheme == THEME_HALLOWEEN) {
-        currentMovieIdx = 0;
-    }
-
-    delay(500);
+    // Arrancar con la pelicula destacada
+    currentMovieIdx = (activeSeasonTheme == THEME_HALLOWEEN) ? 0 : filmOfTheDayIdx;
+    delay(400);
     displayMovie(currentMovieIdx);
 }
 
@@ -296,10 +288,10 @@ void loop() {
     if (touchController.checkTouch(touchX, touchY)) {
         Serial.printf("[Touch] Coordenadas: X=%d, Y=%d\n", touchX, touchY);
 
-        // Mitad izquierda (area del poster o botones inferiores):
-        // Alternar entre la Cita celebre y la Sinopsis completa
+        // Mitad izquierda (area del poster o boton interactivo):
+        // Alternar ciclicamente: CITA -> CURIOSIDAD -> SINOPSIS -> CITA
         if (touchX < (POSTER_X + POSTER_W + 12)) {
-            isSynopsisView = !isSynopsisView;
+            currentView = (MovieView)((currentView + 1) % 3);
             displayMovie(currentMovieIdx);
         }
         // Mitad derecha (informacion):
@@ -309,12 +301,28 @@ void loop() {
         }
     }
 
-    // 3. Cambio automatico tras cumplirse el intervalo de tiempo
-    if (millis() - lastSlideChange >= (SLIDE_INTERVAL_SEC * 1000UL)) {
-        nextMovie();
+    // 3. Comprobacion de cambio de dia (medianoche)
+    time_t now = time(nullptr);
+    struct tm timeinfo;
+    if (localtime_r(&now, &timeinfo) && timeinfo.tm_year > (2020 - 1900)) {
+        if (lastDayRecorded != timeinfo.tm_mday) {
+            lastDayRecorded = timeinfo.tm_mday;
+            updateCalendarAndSeason();
+        }
     }
 
-    // 4. Comandos por consola serie USB
+    // 4. Cambio automatico tras cumplirse el intervalo de tiempo:
+    //    Primero muestra la Cita -> luego revela la Curiosidad de rodaje -> pasa a la siguiente peli
+    if (millis() - lastSlideChange >= (SLIDE_INTERVAL_SEC * 1000UL)) {
+        if (currentView == VIEW_QUOTE) {
+            currentView = VIEW_CURIOSITY;
+            displayMovie(currentMovieIdx);
+        } else {
+            nextMovie();
+        }
+    }
+
+    // 5. Comandos por consola serie USB
     if (Serial.available()) {
         String cmd = Serial.readStringUntil('\n');
         cmd.trim();
@@ -322,14 +330,17 @@ void loop() {
             nextMovie();
         } else if (cmd.equalsIgnoreCase("PREV") || cmd == "p") {
             prevMovie();
-        } else if (cmd.equalsIgnoreCase("TOGGLE") || cmd == "t") {
-            isSynopsisView = !isSynopsisView;
+        } else if (cmd.equalsIgnoreCase("VIEW") || cmd.equalsIgnoreCase("v") || cmd.equalsIgnoreCase("t")) {
+            currentView = (MovieView)((currentView + 1) % 3);
             displayMovie(currentMovieIdx);
         } else if (cmd.equalsIgnoreCase("HALLOWEEN")) {
             activeSeasonTheme = THEME_HALLOWEEN;
             nextMovie();
         } else if (cmd.equalsIgnoreCase("NAVIDAD") || cmd.equalsIgnoreCase("XMAS")) {
             activeSeasonTheme = THEME_CHRISTMAS;
+            nextMovie();
+        } else if (cmd.equalsIgnoreCase("OSCARS")) {
+            activeSeasonTheme = THEME_OSCARS;
             nextMovie();
         } else if (cmd.equalsIgnoreCase("ALL")) {
             activeSeasonTheme = THEME_ALL_YEAR;

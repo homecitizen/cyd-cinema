@@ -2,26 +2,32 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include "movies_db.h"
-#include "config.h"
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  COLORES ESTILO LETTERBOXD (RGB565)
+//  PALETA DE COLORES LETTERBOXD (RGB565)
 // ═══════════════════════════════════════════════════════════════════════════
-#define CLR_LB_BG          0x10E4   // #14181C - Carbon profundo
-#define CLR_LB_CARD        0x2126   // #202830 - Panel oscuro
-#define CLR_LB_BORDER      0x39E9   // #38424E - Borde sutil
-#define CLR_LB_WHITE       0xFFFF   // #FFFFFF - Blanco puro
-#define CLR_LB_MUTED       0x9D98   // #9AB0C0 - Gris azulado
-#define CLR_LB_GREEN       0x072A   // #00E054 - Verde Letterboxd
-#define CLR_LB_ORANGE      0xFC00   // #FF8000 - Naranja Letterboxd / Halloween
-#define CLR_LB_CYAN        0x45FE   // #40BCF4 - Azul cian Letterboxd
-#define CLR_LB_GOLD        0xFDC0   // #FFC800 - Dorado
+#define CLR_LB_BG          0x10C3    // #14181C (Gris muy oscuro azulado de fondo)
+#define CLR_LB_CARD        0x1926    // #1F252B (Contenedor de tarjeta)
+#define CLR_LB_BORDER      0x29C8    // #2C343D (Bordes sutiles)
+#define CLR_LB_GREEN       0x070A    // #00E054 (Verde neon Letterboxd)
+#define CLR_LB_ORANGE      0xFC00    // #FF8000 (Naranja Letterboxd)
+#define CLR_LB_CYAN        0x45FC    // #40BCF4 (Azul cian Letterboxd)
+#define CLR_LB_WHITE       0xFFFF    // #FFFFFF (Blanco puro texto)
+#define CLR_LB_MUTED       0x9CD3    // #9AB0BE (Texto secundario legible)
+#define CLR_LB_GOLD        0xFE60    // #FFCC00 (Dorado / Estrellas)
 
 // Dimensiones de la caratula/poster (108x162 px exactos)
 #define POSTER_X           8
 #define POSTER_Y           8
 #define POSTER_W           108
 #define POSTER_H           162
+
+// Vistas disponibles en la columna de detalles
+enum MovieView {
+    VIEW_QUOTE = 0,      // Frase mitica
+    VIEW_CURIOSITY = 1,  // Curiosidad y anecdotas de rodaje
+    VIEW_SYNOPSIS = 2    // Sinopsis del argumento
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  SANITIZADOR DE CARACTERES (TILDES, ENES, CARACTERES ESPECIALES)
@@ -74,9 +80,9 @@ inline String cleanText(const char* input) {
     return out;
 }
 
-class CinemaUI {
+class UICinema {
 public:
-    CinemaUI(TFT_eSPI& tftRef) : tft(tftRef) {}
+    UICinema(TFT_eSPI& display) : tft(display) {}
 
     void init() {
         tft.fillScreen(CLR_LB_BG);
@@ -108,9 +114,10 @@ public:
 
     void drawBadge(int x, int y, const char* tag, MovieTheme theme) {
         uint16_t tagColor = CLR_LB_GREEN;
-        if (theme == THEME_HALLOWEEN)   tagColor = CLR_LB_ORANGE;
-        else if (theme == THEME_CHRISTMAS) tagColor = CLR_LB_CYAN;
+        if (theme == THEME_HALLOWEEN)        tagColor = CLR_LB_ORANGE;
+        else if (theme == THEME_CHRISTMAS)   tagColor = CLR_LB_CYAN;
         else if (theme == THEME_ANNIVERSARY) tagColor = CLR_LB_GOLD;
+        else if (theme == THEME_OSCARS)      tagColor = CLR_LB_GOLD;
 
         String cTag = cleanText(tag);
         int len = cTag.length();
@@ -123,7 +130,7 @@ public:
         tft.drawString(cTag, x + 7, y + 2, 1);
     }
 
-    void renderMovie(const MovieItem& movie, bool isSynopsisView) {
+    void renderMovie(const MovieItem& movie, MovieView view, const char* dateStr, bool isFilmOfTheDay) {
         // ── 1. ZONA INFERIOR BAJO EL POSTER (X=8..116, Y=172..238) ────────
         // A) Logotipo Letterboxd (3 puntos) + texto
         int lx = 14;
@@ -147,25 +154,38 @@ public:
         tft.setTextDatum(MC_DATUM);
         tft.drawString(buf, 10 + 52, ratingY + 9, 2);
 
-        // C) Boton interactivo para alternar vista (Cita / Sinopsis)
+        // C) Boton interactivo para alternar vista (Cita / Curiosidad / Sinopsis)
         int btnY = 217;
         tft.fillRoundRect(10, btnY, 104, 18, 3, CLR_LB_CARD);
         tft.drawRoundRect(10, btnY, 104, 18, 3, CLR_LB_BORDER);
 
         tft.setTextColor(CLR_LB_MUTED, CLR_LB_CARD);
         tft.setTextDatum(MC_DATUM);
-        if (!isSynopsisView) {
-            tft.drawString("[Ver Sinopsis]", 10 + 52, btnY + 9, 1);
+        if (view == VIEW_QUOTE) {
+            tft.drawString("[Curiosidad]", 10 + 52, btnY + 9, 1);
+        } else if (view == VIEW_CURIOSITY) {
+            tft.drawString("[Sinopsis]", 10 + 52, btnY + 9, 1);
         } else {
-            tft.drawString("[Ver Cita]", 10 + 52, btnY + 9, 1);
+            tft.drawString("[Cita]", 10 + 52, btnY + 9, 1);
         }
 
         // ── 2. COLUMNA DERECHA DE DETALLES (X=128..316) ─────────────────────
         int rx = POSTER_X + POSTER_W + 12; // 128
-        int rw = SCREEN_W - rx - 8;
+        int rw = 320 - rx - 8;
 
-        // Badge tematico
-        drawBadge(rx, 8, movie.tag, movie.theme);
+        // Badge tematico o insignia "PELICULA DEL DIA"
+        if (isFilmOfTheDay) {
+            drawBadge(rx, 8, "PELICULA DEL DIA", THEME_ANNIVERSARY);
+        } else {
+            drawBadge(rx, 8, movie.tag, movie.theme);
+        }
+
+        // Fecha actual en la esquina superior derecha (ej: "31 OCT")
+        if (dateStr && strlen(dateStr) > 0) {
+            tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
+            tft.setTextDatum(TR_DATUM);
+            tft.drawString(dateStr, 320 - 8, 10, 1);
+        }
 
         // Titulo de la pelicula (negrita Font 4)
         tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
@@ -197,17 +217,19 @@ public:
         // Linea divisoria
         tft.drawFastHLine(rx, 116, rw, CLR_LB_BORDER);
 
-        // Cita o Sinopsis segun vista activa
-        if (!isSynopsisView) {
-            drawQuoteView(rx, 126, rw, movie.quote);
+        // Vista seleccionada: Cita, Curiosidad o Sinopsis
+        if (view == VIEW_QUOTE) {
+            drawQuoteView(rx, 124, rw, movie.quote);
+        } else if (view == VIEW_CURIOSITY) {
+            drawCuriosityView(rx, 124, rw, movie.curiosity);
         } else {
-            drawSynopsisView(rx, 126, rw, movie.synopsis);
+            drawSynopsisView(rx, 124, rw, movie.synopsis);
         }
 
         // Indicador siguiente en esquina inferior derecha
         tft.setTextColor(CLR_LB_BORDER, CLR_LB_BG);
         tft.setTextDatum(TR_DATUM);
-        tft.drawString("Siguiente >", SCREEN_W - 8, 222, 1);
+        tft.drawString("Siguiente >", 320 - 8, 222, 1);
     }
 
     void drawQuoteView(int x, int y, int w, const char* quote) {
@@ -219,13 +241,13 @@ public:
         String q = cleanText(quote);
         
         int curY = y + 15;
-        while (q.length() > 0 && curY < 205) {
-            if (q.length() <= 23) {
+        while (q.length() > 0 && curY < 215) {
+            if (q.length() <= 24) {
                 tft.drawString(q, x, curY, 2);
                 break;
             }
-            int sp = q.lastIndexOf(' ', 23);
-            if (sp <= 0) sp = 23;
+            int sp = q.lastIndexOf(' ', 24);
+            if (sp <= 0) sp = 24;
             tft.drawString(q.substring(0, sp), x, curY, 2);
             q = q.substring(sp);
             q.trim();
@@ -233,28 +255,52 @@ public:
         }
     }
 
+    void drawCuriosityView(int x, int y, int w, const char* cur) {
+        tft.setTextColor(CLR_LB_GOLD, CLR_LB_BG);
+        tft.setTextDatum(TL_DATUM);
+        tft.drawString("* CURIOSIDAD DE RODAJE:", x, y, 1);
+
+        tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
+        String c = cleanText(cur);
+        int curY = y + 14;
+        while (c.length() > 0 && curY < 218) {
+            if (c.length() <= 26) {
+                tft.drawString(c, x, curY, 2);
+                break;
+            }
+            int sp = c.lastIndexOf(' ', 26);
+            if (sp <= 0) sp = 26;
+            tft.drawString(c.substring(0, sp), x, curY, 2);
+            c = c.substring(sp);
+            c.trim();
+            curY += 16;
+        }
+    }
+
     void drawSynopsisView(int x, int y, int w, const char* syn) {
-        tft.setTextColor(CLR_LB_ORANGE, CLR_LB_BG);
+        tft.setTextColor(CLR_LB_GREEN, CLR_LB_BG);
         tft.setTextDatum(TL_DATUM);
         tft.drawString("SINOPSIS:", x, y, 1);
 
         tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
         String s = cleanText(syn);
-        int curY = y + 15;
-        while (s.length() > 0 && curY < 205) {
-            if (s.length() <= 25) {
+        int curY = y + 14;
+        while (s.length() > 0 && curY < 218) {
+            if (s.length() <= 26) {
                 tft.drawString(s, x, curY, 2);
                 break;
             }
-            int sp = s.lastIndexOf(' ', 25);
-            if (sp <= 0) sp = 25;
+            int sp = s.lastIndexOf(' ', 26);
+            if (sp <= 0) sp = 26;
             tft.drawString(s.substring(0, sp), x, curY, 2);
             s = s.substring(sp);
             s.trim();
-            curY += 18;
+            curY += 16;
         }
     }
 
 private:
     TFT_eSPI& tft;
 };
+
+using CinemaUI = UICinema;
