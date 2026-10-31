@@ -223,7 +223,6 @@ void setup() {
     tft.init();
     tft.setRotation(TFT_ROTATION);
     tft.fillScreen(CLR_LB_BG);
-    tft.setSwapBytes(true);
 
     // Inicializar controlador tactil
     touchController.begin();
@@ -345,6 +344,17 @@ void loop() {
         } else if (cmd.equalsIgnoreCase("ALL")) {
             activeSeasonTheme = THEME_ALL_YEAR;
             nextMovie();
+        } else if (cmd.equalsIgnoreCase("SWAP")) {
+            static bool swapState = true;
+            swapState = !swapState;
+            TJpgDec.setSwapBytes(swapState);
+            Serial.printf("[Debug] TJpgDec.setSwapBytes(%s)\n", swapState ? "true" : "false");
+            displayMovie(currentMovieIdx);
+        } else if (cmd.equalsIgnoreCase("INVERT")) {
+            static bool invState = false;
+            invState = !invState;
+            tft.invertDisplay(invState);
+            Serial.printf("[Debug] tft.invertDisplay(%s)\n", invState ? "true" : "false");
         }
     }
 
