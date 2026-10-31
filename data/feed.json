@@ -1,0 +1,61 @@
+{
+  "updated_at": "2026-10-31T22:15:00Z",
+  "theme": "Halloween & Horror",
+  "movies": [
+    {
+      "title": "The Shining",
+      "year": 1980,
+      "director": "Stanley Kubrick",
+      "genre": "Terror Psicológico",
+      "rating": 4.3,
+      "tag": "🎃 ESPECIAL HALLOWEEN",
+      "quote": "«¡Aquí está Johnny!»",
+      "poster_url": "https://image.tmdb.org/t/p/w154/74xTEgt7R36Fpooo50r9T25onhq.jpg",
+      "synopsis": "Jack Torrance se traslada con su familia al aislado hotel Overlook para cuidar de él en invierno."
+    },
+    {
+      "title": "Halloween",
+      "year": 1978,
+      "director": "John Carpenter",
+      "genre": "Slasher",
+      "rating": 4.0,
+      "tag": "🎃 ESPECIAL HALLOWEEN",
+      "quote": "«¡La noche en que ÉL regresó a casa!»",
+      "poster_url": "https://image.tmdb.org/t/p/w154/bM0mv9UKn6hF1F5X29d5bB8Z5W.jpg",
+      "synopsis": "Quince años después de asesinar a su hermana, Michael Myers escapa de un hospital psiquiátrico."
+    },
+    {
+      "title": "Scream",
+      "year": 1996,
+      "director": "Wes Craven",
+      "genre": "Terror / Meta",
+      "rating": 3.9,
+      "tag": "🎃 ESPECIAL HALLOWEEN",
+      "quote": "«¿Cuál es tu película de terror favorita?»",
+      "poster_url": "https://image.tmdb.org/t/p/w154/7mH2B0aFvU9aC3w4zK1K8w2B9f.jpg",
+      "synopsis": "Un año después del asesinato de su madre, Sidney Prescott es acechada por un asesino con máscara de fantasma."
+    },
+    {
+      "title": "Psycho",
+      "year": 1960,
+      "director": "Alfred Hitchcock",
+      "genre": "Suspense",
+      "rating": 4.4,
+      "tag": "🎃 ESPECIAL HALLOWEEN",
+      "quote": "«El mejor amigo de un muchacho es su madre.»",
+      "poster_url": "https://image.tmdb.org/t/p/w154/811DjJTon9gD6hZ8Q1V4X4G8h6.jpg",
+      "synopsis": "Una secretaria de Phoenix malversa fondos y se aloja en un recóndito motel regentado por Norman Bates."
+    },
+    {
+      "title": "Alien",
+      "year": 1979,
+      "director": "Ridley Scott",
+      "genre": "Ciencia Ficción",
+      "rating": 4.3,
+      "tag": "🎃 ESPECIAL HALLOWEEN",
+      "quote": "«En el espacio nadie puede oír tus gritos.»",
+      "poster_url": "https://image.tmdb.org/t/p/w154/vfrQk5IPloGg1v9RzKu2a3G8h7.jpg",
+      "synopsis": "La tripulación de la nave espacial Nostromo intercepta una señal de socorro desde un planeta desconocido."
+    }
+  ]
+}
