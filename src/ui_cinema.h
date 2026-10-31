@@ -23,16 +23,8 @@
 #define POSTER_W           108
 #define POSTER_H           162
 
-// Vista activa
-enum DisplayView {
-    VIEW_QUOTE,
-    VIEW_SYNOPSIS
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  SANITIZADOR DE CARACTERES (TILDES, ENES, CARACTERES ESPECIALES)
-//  Convierte secuencias UTF-8 multibyte en caracteres ASCII legibles
-//  para que las fuentes de TFT_eSPI no omitan ninguna letra.
 // ═══════════════════════════════════════════════════════════════════════════
 inline String cleanText(const char* input) {
     if (!input) return "";
@@ -84,17 +76,10 @@ inline String cleanText(const char* input) {
 
 class CinemaUI {
 public:
-    CinemaUI(TFT_eSPI& tftRef) : tft(tftRef), currentView(VIEW_QUOTE) {}
+    CinemaUI(TFT_eSPI& tftRef) : tft(tftRef) {}
 
     void init() {
         tft.fillScreen(CLR_LB_BG);
-    }
-
-    void drawLetterboxdLogo(int x, int y) {
-        // Los 3 circulos iconicos de Letterboxd: Naranja, Verde, Azul
-        tft.fillCircle(x,     y, 3, CLR_LB_ORANGE);
-        tft.fillCircle(x + 8, y, 3, CLR_LB_GREEN);
-        tft.fillCircle(x + 16,y, 3, CLR_LB_CYAN);
     }
 
     void drawPlaceholderPoster(const MovieItem& movie) {
@@ -121,15 +106,6 @@ public:
         tft.drawString(yearStr, cx, POSTER_Y + 130, 2);
     }
 
-    void drawRatingStars(int x, int y, float rating) {
-        tft.setTextColor(CLR_LB_GREEN, CLR_LB_BG);
-        tft.setTextDatum(TL_DATUM);
-
-        char buf[20];
-        snprintf(buf, sizeof(buf), "* %.1f / 5", rating);
-        tft.drawString(buf, x, y, 2);
-    }
-
     void drawBadge(int x, int y, const char* tag, MovieTheme theme) {
         uint16_t tagColor = CLR_LB_GREEN;
         if (theme == THEME_HALLOWEEN)   tagColor = CLR_LB_ORANGE;
@@ -147,26 +123,53 @@ public:
         tft.drawString(cTag, x + 7, y + 2, 1);
     }
 
-    void renderMovieInfo(const MovieItem& movie) {
-        // Limpiar columna derecha completa
-        int rx = POSTER_X + POSTER_W + 12;
-        int rw = SCREEN_W - rx - 6;
-        tft.fillRect(rx, 0, rw + 6, SCREEN_H, CLR_LB_BG);
+    void renderMovie(const MovieItem& movie, bool isSynopsisView) {
+        // ── 1. ZONA INFERIOR BAJO EL POSTER (X=8..116, Y=172..238) ────────
+        // A) Logotipo Letterboxd (3 puntos) + texto
+        int lx = 14;
+        int ly = 177;
+        tft.fillCircle(lx,      ly, 3, CLR_LB_ORANGE);
+        tft.fillCircle(lx + 8,  ly, 3, CLR_LB_GREEN);
+        tft.fillCircle(lx + 16, ly, 3, CLR_LB_CYAN);
 
-        // Limpiar debajo del poster
-        tft.fillRect(0, POSTER_Y + POSTER_H + 2, POSTER_X + POSTER_W + 4, SCREEN_H - (POSTER_Y + POSTER_H + 2), CLR_LB_BG);
+        tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
+        tft.setTextDatum(TL_DATUM);
+        tft.drawString("LETTERBOXD", lx + 26, ly - 4, 1);
 
-        // 1. Valoracion y logo Letterboxd bajo el poster
-        drawRatingStars(POSTER_X + 2, POSTER_Y + POSTER_H + 8, movie.rating);
-        drawLetterboxdLogo(POSTER_X + POSTER_W - 22, POSTER_Y + POSTER_H + 16);
+        // B) Pildora de valoracion con estrellas
+        int ratingY = 193;
+        tft.fillRoundRect(10, ratingY, 104, 18, 4, CLR_LB_CARD);
+        tft.drawRoundRect(10, ratingY, 104, 18, 4, CLR_LB_GREEN);
 
-        // 2. Badge tematico
+        char buf[20];
+        snprintf(buf, sizeof(buf), "* %.1f / 5", movie.rating);
+        tft.setTextColor(CLR_LB_GREEN, CLR_LB_CARD);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString(buf, 10 + 52, ratingY + 9, 2);
+
+        // C) Boton interactivo para alternar vista (Cita / Sinopsis)
+        int btnY = 217;
+        tft.fillRoundRect(10, btnY, 104, 18, 3, CLR_LB_CARD);
+        tft.drawRoundRect(10, btnY, 104, 18, 3, CLR_LB_BORDER);
+
+        tft.setTextColor(CLR_LB_MUTED, CLR_LB_CARD);
+        tft.setTextDatum(MC_DATUM);
+        if (!isSynopsisView) {
+            tft.drawString("[Ver Sinopsis]", 10 + 52, btnY + 9, 1);
+        } else {
+            tft.drawString("[Ver Cita]", 10 + 52, btnY + 9, 1);
+        }
+
+        // ── 2. COLUMNA DERECHA DE DETALLES (X=128..316) ─────────────────────
+        int rx = POSTER_X + POSTER_W + 12; // 128
+        int rw = SCREEN_W - rx - 8;
+
+        // Badge tematico
         drawBadge(rx, 8, movie.tag, movie.theme);
 
-        // 3. Titulo de la pelicula
+        // Titulo de la pelicula (negrita Font 4)
         tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
         tft.setTextDatum(TL_DATUM);
-        
         String title = cleanText(movie.title);
         if (title.length() > 16) {
             int splitIdx = title.lastIndexOf(' ', 16);
@@ -180,7 +183,7 @@ public:
             tft.drawString(title, rx, 30, 4);
         }
 
-        // 4. Meta: Ano y Director
+        // Ano y Director
         char metaStr[80];
         snprintf(metaStr, sizeof(metaStr), "%d . %s", movie.year, cleanText(movie.director).c_str());
         tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
@@ -194,15 +197,17 @@ public:
         // Linea divisoria
         tft.drawFastHLine(rx, 116, rw, CLR_LB_BORDER);
 
-        // 5. Cita o Sinopsis
-        if (currentView == VIEW_QUOTE) {
+        // Cita o Sinopsis segun vista activa
+        if (!isSynopsisView) {
             drawQuoteView(rx, 126, rw, movie.quote);
         } else {
             drawSynopsisView(rx, 126, rw, movie.synopsis);
         }
 
-        // 6. Pie de pagina navegable
-        drawFooterNav();
+        // Indicador siguiente en esquina inferior derecha
+        tft.setTextColor(CLR_LB_BORDER, CLR_LB_BG);
+        tft.setTextDatum(TR_DATUM);
+        tft.drawString("Siguiente >", SCREEN_W - 8, 222, 1);
     }
 
     void drawQuoteView(int x, int y, int w, const char* quote) {
@@ -250,31 +255,6 @@ public:
         }
     }
 
-    void drawFooterNav() {
-        int y = 222;
-        tft.setTextColor(CLR_LB_BORDER, CLR_LB_BG);
-        tft.setTextDatum(TR_DATUM);
-        tft.drawString("Siguiente >", SCREEN_W - 8, y, 1);
-
-        tft.setTextDatum(TL_DATUM);
-        if (currentView == VIEW_QUOTE) {
-            tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
-            tft.drawString("[Ver Sinopsis]", POSTER_X + POSTER_W + 12, y, 1);
-        } else {
-            tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
-            tft.drawString("[Ver Cita]", POSTER_X + POSTER_W + 12, y, 1);
-        }
-    }
-
-    void toggleView() {
-        currentView = (currentView == VIEW_QUOTE) ? VIEW_SYNOPSIS : VIEW_QUOTE;
-    }
-
-    DisplayView getView() const {
-        return currentView;
-    }
-
 private:
     TFT_eSPI& tft;
-    DisplayView currentView;
 };

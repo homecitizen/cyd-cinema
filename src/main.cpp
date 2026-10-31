@@ -23,10 +23,11 @@ WebServer       webServer(80);
 Preferences     prefs;
 
 // Estado del recomendador
-static int           currentMovieIdx = 0;
-static unsigned long lastSlideChange = 0;
-static bool          wifiConnected   = false;
-static bool          apModeActive    = false;
+static int           currentMovieIdx   = 0;
+static unsigned long lastSlideChange   = 0;
+static bool          wifiConnected     = false;
+static bool          apModeActive      = false;
+static bool          isSynopsisView    = false;
 static MovieTheme    activeSeasonTheme = THEME_ALL_YEAR;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -119,7 +120,6 @@ void updateSeasonTheme() {
             activeSeasonTheme = THEME_ALL_YEAR;
         }
     } else {
-        // Por defecto en esta fecha: Especial Halloween
         activeSeasonTheme = THEME_HALLOWEEN;
     }
 }
@@ -135,24 +135,27 @@ void displayMovie(int idx) {
     const MovieItem& movie = EMBEDDED_MOVIES[currentMovieIdx];
     Serial.printf("\n[Cine] Mostrando: %s (%d) - %s\n", movie.title, movie.year, movie.tag);
 
-    // 1. Dibujar informacion de texto, valoracion y estilo Letterboxd
-    ui.renderMovieInfo(movie);
+    // 1. Limpiar pantalla COMPLETA (garantiza eliminar cualquier texto o rastro previo)
+    tft.fillScreen(CLR_LB_BG);
 
-    // 2. Renderizar el POSTER REAL (108x162 px)
+    // 2. Dibujar informacion de texto, valoracion y estilo Letterboxd
+    ui.renderMovie(movie, isSynopsisView);
+
+    // 3. Renderizar el POSTER REAL (108x162 px exactos)
     bool posterDrawn = false;
 
-    // A) Poster real pre-integrado en Flash (carga instantanea y offline)
+    // A) Poster real pre-integrado en Flash (carga instantanea y 100% offline)
     if (movie.posterData && movie.posterLen > 0) {
         TJpgDec.drawJpg(POSTER_X, POSTER_Y, movie.posterData, movie.posterLen);
         tft.drawRoundRect(POSTER_X - 1, POSTER_Y - 1, POSTER_W + 2, POSTER_H + 2, 4, CLR_LB_BORDER);
         posterDrawn = true;
     }
-    // B) Si no estuviera integrado pero hay conexion Wi-Fi, descargarlo en vivo
+    // B) Descarga Wi-Fi si hay conexion
     else if (wifiConnected && movie.posterUrl && strlen(movie.posterUrl) > 10) {
         posterDrawn = posterFetcher.fetchAndDisplay(movie.posterUrl);
     }
 
-    // C) Fallback solo si fallaran ambos
+    // C) Fallback
     if (!posterDrawn) {
         ui.drawPlaceholderPoster(movie);
     }
@@ -161,9 +164,9 @@ void displayMovie(int idx) {
 }
 
 void nextMovie() {
+    isSynopsisView = false; // Resetear a cita en la siguiente pelicula
     int nextIdx = (currentMovieIdx + 1) % TOTAL_EMBEDDED_MOVIES;
     
-    // Si estamos en una temporada tematica (ej: Halloween), buscar la siguiente de esa categoria
     if (activeSeasonTheme != THEME_ALL_YEAR) {
         int tries = 0;
         while (EMBEDDED_MOVIES[nextIdx].theme != activeSeasonTheme && tries < TOTAL_EMBEDDED_MOVIES) {
@@ -175,6 +178,7 @@ void nextMovie() {
 }
 
 void prevMovie() {
+    isSynopsisView = false;
     int prevIdx = (currentMovieIdx - 1 + TOTAL_EMBEDDED_MOVIES) % TOTAL_EMBEDDED_MOVIES;
     if (activeSeasonTheme != THEME_ALL_YEAR) {
         int tries = 0;
@@ -232,7 +236,7 @@ void setup() {
     // Inicializar controlador tactil
     touchController.begin();
 
-    // Configurar decodificador JPEG para posters
+    // Configurar decodificador JPEG
     TJpgDec.setJpgScale(1);
     TJpgDec.setSwapBytes(true);
     TJpgDec.setCallback(tft_output);
@@ -259,7 +263,6 @@ void setup() {
             Serial.println("\n[Wi-Fi] Conectado exitosamente.");
             Serial.printf("[Wi-Fi] IP: %s\n", WiFi.localIP().toString().c_str());
 
-            // Sincronizar reloj de internet (NTP)
             configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET, NTP_SERVER);
             delay(500);
             updateSeasonTheme();
@@ -271,12 +274,11 @@ void setup() {
         startConfigAP();
     }
 
-    // Por defecto hoy en Halloween empezar en The Shining
     if (activeSeasonTheme == THEME_HALLOWEEN) {
         currentMovieIdx = 0;
     }
 
-    delay(600);
+    delay(500);
     displayMovie(currentMovieIdx);
 }
 
@@ -294,10 +296,10 @@ void loop() {
     if (touchController.checkTouch(touchX, touchY)) {
         Serial.printf("[Touch] Coordenadas: X=%d, Y=%d\n", touchX, touchY);
 
-        // Mitad izquierda (poster o pie de pagina de sinopsis):
-        // Alternar entre la Cita celebre y la Sinopsis detallada
+        // Mitad izquierda (area del poster o botones inferiores):
+        // Alternar entre la Cita celebre y la Sinopsis completa
         if (touchX < (POSTER_X + POSTER_W + 12)) {
-            ui.toggleView();
+            isSynopsisView = !isSynopsisView;
             displayMovie(currentMovieIdx);
         }
         // Mitad derecha (informacion):
@@ -321,7 +323,7 @@ void loop() {
         } else if (cmd.equalsIgnoreCase("PREV") || cmd == "p") {
             prevMovie();
         } else if (cmd.equalsIgnoreCase("TOGGLE") || cmd == "t") {
-            ui.toggleView();
+            isSynopsisView = !isSynopsisView;
             displayMovie(currentMovieIdx);
         } else if (cmd.equalsIgnoreCase("HALLOWEEN")) {
             activeSeasonTheme = THEME_HALLOWEEN;
