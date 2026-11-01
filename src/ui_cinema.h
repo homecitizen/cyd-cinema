@@ -292,25 +292,25 @@ public:
         // Cabecera Apple Music
         tft.setTextColor(CLR_LB_PINK, CLR_LB_BG);
         tft.setTextDatum(MC_DATUM);
-        tft.drawString("* Apple Music *", 160, 70, 4);
+        tft.drawString("* Apple Music *", 160, 55, 4);
 
         tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
         if (lang == LANG_EN) {
-            tft.drawString("Waiting for PC connection...", 160, 115, 2);
+            tft.drawString("Waiting for PC connection...", 160, 100, 2);
             tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
-            tft.drawString("Run 'py nowplaying.py' on Windows", 160, 140, 2);
+            tft.drawString("Run 'py nowplaying.py' on Windows", 160, 125, 2);
         } else {
-            tft.drawString("Esperando conexion del PC...", 160, 115, 2);
+            tft.drawString("Esperando conexion del PC...", 160, 100, 2);
             tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
-            tft.drawString("Ejecuta 'py nowplaying.py' en Windows", 160, 140, 2);
+            tft.drawString("Ejecuta 'py nowplaying.py' en Windows", 160, 125, 2);
         }
 
-        // Boton para volver a modo cine
-        tft.fillRoundRect(100, 185, 120, 28, 6, CLR_LB_CARD);
-        tft.drawRoundRect(100, 185, 120, 28, 6, CLR_LB_GREEN);
+        // Gran boton interactivo para volver a modo cine
+        tft.fillRoundRect(50, 170, 220, 42, 8, CLR_LB_CARD);
+        tft.drawRoundRect(50, 170, 220, 42, 8, CLR_LB_GREEN);
         tft.setTextColor(CLR_LB_GREEN, CLR_LB_CARD);
         tft.setTextDatum(MC_DATUM);
-        tft.drawString((lang == LANG_EN) ? "Switch to Cinema" : "Cambiar a Cine", 160, 199, 2);
+        tft.drawString((lang == LANG_EN) ? "<- Switch to Cinema" : "<- Cambiar a Cine", 160, 191, 4);
     }
 
 private:

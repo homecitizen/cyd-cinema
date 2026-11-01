@@ -526,15 +526,33 @@ void loop() {
         if (!wasTouched) {
             wasTouched = true;
 
-            // CASO A: MODO MUSICA (Reenviar toque al PC para play/pausa, volumen, etc.)
+            // CASO A: MODO MUSICA
             if (isDisplayingMusic) {
-                Serial.printf("T %d %d D\n", touchX, touchY);
+                bool isLiveMusicActive = (lastMusicPacket > 0 && (millis() - lastMusicPacket < 4000));
 
-                // Si se toca en la esquina superior derecha (X > 280, Y < 40) en pantalla de reposo:
-                // permite cambiar manualmente a modo cine
-                if (touchX > 270 && touchY < 40) {
+                if (isLiveMusicActive) {
+                    // Si la musica esta sonando activamente en el PC, reenviar el toque (play/pausa/seek/vol)
+                    Serial.printf("T %d %d D\n", touchX, touchY);
+
+                    // Toque en esquina superior derecha permite salir a modo Cine en cualquier momento
+                    if (touchX > 260 && touchY < 45) {
+                        currentMode = APP_MODE_AUTO;
+                        prefs.begin("cyd-cinema", false);
+                        prefs.putUChar("mode", (uint8_t)currentMode);
+                        prefs.end();
+                        isDisplayingMusic = false;
+                        displayMovie(currentMovieIdx);
+                    }
+                } else {
+                    // PANTALLA DE REPOSO ("Esperando conexion del PC...")
+                    // Cualquier toque sobre el boton o la pantalla vuelve inmediatamente a Modo Cine!
                     currentMode = APP_MODE_AUTO;
+                    prefs.begin("cyd-cinema", false);
+                    prefs.putUChar("mode", (uint8_t)currentMode);
+                    prefs.end();
+                    isDisplayingMusic = false;
                     displayMovie(currentMovieIdx);
+                    Serial.println("[Modo] Boton 'Cambiar a Cine' activado -> Regresando a Cine");
                 }
             }
             // CASO B: MODO CINE
