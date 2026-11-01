@@ -13,7 +13,7 @@
 #define WIFI_TIMEOUT_SEC   15
 
 // Nombre de la red Wi-Fi que emite el ESP32 si no hay conexión configurada
-#define AP_SSID            "LetterDeck-Setup"
+#define AP_SSID            "CYD-Cinema-Setup"
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  INTERVALO Y HORARIO

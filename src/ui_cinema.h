@@ -139,7 +139,7 @@ public:
     }
 
     void renderMovie(const MovieItem& movie, MovieView view, const char* dateStr,
-                     bool isFilmOfTheDay, AppLanguage lang, AppMode mode) {
+                     bool isFilmOfTheDay = false, AppLanguage lang = LANG_ES) {
         // ── 1. ZONA INFERIOR BAJO EL POSTER (X=8..116, Y=172..238) ────────
         // A) Logotipo Letterboxd (3 puntos) + texto
         int lx = 14;
@@ -241,22 +241,13 @@ public:
         }
 
         // ── BARRA INFERIOR DE CONTROLES (Y=218..238) ──────────────────────
-        // Pildora de Modo (X=128..158): [AUTO] / [CINE] / [MUS]
-        const char* modeLabel = (mode == APP_MODE_AUTO) ? "AUTO" : (mode == APP_MODE_CINEMA ? "CINE" : "MUS");
-        uint16_t modeColor = (mode == APP_MODE_AUTO) ? CLR_LB_CYAN : (mode == APP_MODE_CINEMA ? CLR_LB_GREEN : CLR_LB_PINK);
-        tft.fillRoundRect(rx, 218, 32, 16, 3, CLR_LB_CARD);
-        tft.drawRoundRect(rx, 218, 32, 16, 3, modeColor);
-        tft.setTextColor(modeColor, CLR_LB_CARD);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString(modeLabel, rx + 16, 218 + 8, 1);
-
-        // Pildora de Idioma (X=166..188): [ES] o [EN] (tappable!)
+        // Pildora de Idioma (X=128..156): [ES] o [EN] (tappable!)
         const char* langLabel = (lang == LANG_EN) ? "EN" : "ES";
-        tft.fillRoundRect(rx + 38, 218, 24, 16, 3, CLR_LB_CARD);
-        tft.drawRoundRect(rx + 38, 218, 24, 16, 3, CLR_LB_BORDER);
+        tft.fillRoundRect(rx, 218, 28, 16, 3, CLR_LB_CARD);
+        tft.drawRoundRect(rx, 218, 28, 16, 3, CLR_LB_BORDER);
         tft.setTextColor(CLR_LB_WHITE, CLR_LB_CARD);
         tft.setTextDatum(MC_DATUM);
-        tft.drawString(langLabel, rx + 38 + 12, 218 + 8, 1);
+        tft.drawString(langLabel, rx + 14, 218 + 8, 1);
 
         // Indicador siguiente en esquina inferior derecha
         tft.setTextColor(CLR_LB_BORDER, CLR_LB_BG);
@@ -285,33 +276,6 @@ public:
             s.trim();
             curY += 16;
         }
-    }
-
-    void showMusicIdleScreen(AppLanguage lang) {
-        tft.fillScreen(CLR_LB_BG);
-        
-        // Cabecera LetterDeck Music
-        tft.setTextColor(CLR_LB_PINK, CLR_LB_BG);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString("* LetterDeck Music *", 160, 55, 4);
-
-        tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
-        if (lang == LANG_EN) {
-            tft.drawString("Waiting for PC connection...", 160, 100, 2);
-            tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
-            tft.drawString("Run 'py nowplaying.py' on Windows", 160, 125, 2);
-        } else {
-            tft.drawString("Esperando conexion del PC...", 160, 100, 2);
-            tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
-            tft.drawString("Ejecuta 'py nowplaying.py' en Windows", 160, 125, 2);
-        }
-
-        // Gran boton interactivo para volver a modo cine
-        tft.fillRoundRect(50, 170, 220, 42, 8, CLR_LB_CARD);
-        tft.drawRoundRect(50, 170, 220, 42, 8, CLR_LB_GREEN);
-        tft.setTextColor(CLR_LB_GREEN, CLR_LB_CARD);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString((lang == LANG_EN) ? "<- Switch to Cinema" : "<- Cambiar a Cine", 160, 191, 4);
     }
 
 private:
