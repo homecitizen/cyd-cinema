@@ -182,7 +182,7 @@ public:
         int rx = POSTER_X + POSTER_W + 12; // 128
         int rw = 320 - rx - 8;
 
-        // Badge tematico o insignia "PELICULA DEL DIA"
+        // Badge tematico o insignia "PELICULA DEL DIA" (con espacio libre completo)
         if (isFilmOfTheDay) {
             const char* fotd = (lang == LANG_EN) ? "FILM OF THE DAY" : "PELICULA DEL DIA";
             drawBadge(rx, 8, fotd, THEME_ANNIVERSARY);
@@ -190,28 +190,11 @@ public:
             drawBadge(rx, 8, movie.getTag(lang), movie.theme);
         }
 
-        // Pildora de Modo (X=230..256): [AUTO] / [CINE] / [MUS]
-        const char* modeLabel = (mode == APP_MODE_AUTO) ? "AUTO" : (mode == APP_MODE_CINEMA ? "CINE" : "MUS");
-        uint16_t modeColor = (mode == APP_MODE_AUTO) ? CLR_LB_CYAN : (mode == APP_MODE_CINEMA ? CLR_LB_GREEN : CLR_LB_PINK);
-        tft.fillRoundRect(228, 8, 30, 16, 3, CLR_LB_CARD);
-        tft.drawRoundRect(228, 8, 30, 16, 3, modeColor);
-        tft.setTextColor(modeColor, CLR_LB_CARD);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString(modeLabel, 228 + 15, 8 + 8, 1);
-
-        // Pildora de Idioma (X=262..286): [ES] o [EN] (tappable!)
-        const char* langLabel = (lang == LANG_EN) ? "EN" : "ES";
-        tft.fillRoundRect(262, 8, 22, 16, 3, CLR_LB_CARD);
-        tft.drawRoundRect(262, 8, 22, 16, 3, CLR_LB_BORDER);
-        tft.setTextColor(CLR_LB_WHITE, CLR_LB_CARD);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString(langLabel, 262 + 11, 8 + 8, 1);
-
         // Fecha actual en la esquina superior derecha (ej: "31 OCT")
         if (dateStr && strlen(dateStr) > 0) {
             tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
             tft.setTextDatum(TR_DATUM);
-            tft.drawString(dateStr, 320 - 4, 10, 1);
+            tft.drawString(dateStr, 320 - 6, 10, 1);
         }
 
         // Titulo de la pelicula (negrita Font 4)
@@ -257,6 +240,24 @@ public:
             drawTextView(rx, 124, rw, sHead, CLR_LB_GREEN, movie.getSynopsis(lang), CLR_LB_MUTED);
         }
 
+        // ── BARRA INFERIOR DE CONTROLES (Y=218..238) ──────────────────────
+        // Pildora de Modo (X=128..158): [AUTO] / [CINE] / [MUS]
+        const char* modeLabel = (mode == APP_MODE_AUTO) ? "AUTO" : (mode == APP_MODE_CINEMA ? "CINE" : "MUS");
+        uint16_t modeColor = (mode == APP_MODE_AUTO) ? CLR_LB_CYAN : (mode == APP_MODE_CINEMA ? CLR_LB_GREEN : CLR_LB_PINK);
+        tft.fillRoundRect(rx, 218, 32, 16, 3, CLR_LB_CARD);
+        tft.drawRoundRect(rx, 218, 32, 16, 3, modeColor);
+        tft.setTextColor(modeColor, CLR_LB_CARD);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString(modeLabel, rx + 16, 218 + 8, 1);
+
+        // Pildora de Idioma (X=166..188): [ES] o [EN] (tappable!)
+        const char* langLabel = (lang == LANG_EN) ? "EN" : "ES";
+        tft.fillRoundRect(rx + 38, 218, 24, 16, 3, CLR_LB_CARD);
+        tft.drawRoundRect(rx + 38, 218, 24, 16, 3, CLR_LB_BORDER);
+        tft.setTextColor(CLR_LB_WHITE, CLR_LB_CARD);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString(langLabel, rx + 38 + 12, 218 + 8, 1);
+
         // Indicador siguiente en esquina inferior derecha
         tft.setTextColor(CLR_LB_BORDER, CLR_LB_BG);
         tft.setTextDatum(TR_DATUM);
@@ -289,10 +290,10 @@ public:
     void showMusicIdleScreen(AppLanguage lang) {
         tft.fillScreen(CLR_LB_BG);
         
-        // Cabecera Apple Music
+        // Cabecera LetterDeck Music
         tft.setTextColor(CLR_LB_PINK, CLR_LB_BG);
         tft.setTextDatum(MC_DATUM);
-        tft.drawString("* Apple Music *", 160, 55, 4);
+        tft.drawString("* LetterDeck Music *", 160, 55, 4);
 
         tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
         if (lang == LANG_EN) {

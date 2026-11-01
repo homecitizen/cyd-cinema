@@ -65,7 +65,7 @@ void handleRoot() {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CYD Cinema & Music</title>
+  <title>LetterDeck — Cinema & Music</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #14181C; color: #FFF; margin: 0; padding: 20px; text-align: center; }
     .card { background: #1F252B; border: 1px solid #2C343D; border-radius: 12px; padding: 24px; max-width: 400px; margin: 0 auto; box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: left; }
@@ -79,7 +79,7 @@ void handleRoot() {
 </head>
 <body>
   <div class="card">
-    <h1>CYD Cinema & Music</h1>
+    <h1>LetterDeck</h1>
     <form method="POST" action="/save">
       <label>Idioma / Language</label>
       <select name="lang">
@@ -435,7 +435,7 @@ void setup() {
     Serial.setRxBufferSize(16384);
     Serial.begin(921600);
     delay(100);
-    Serial.println("\n--- CYD Cinema & Music Dual Player ---");
+    Serial.println("\n--- LetterDeck (ESP32-2432S028) ---");
 
     // Inicializar pantalla TFT
     tft.init();
@@ -557,17 +557,8 @@ void loop() {
             }
             // CASO B: MODO CINE
             else {
-                // 1. Tocar el boton de IDIOMA [ES] / [EN] (X=260..290, Y<=28)
-                if (touchX >= 260 && touchX <= 292 && touchY <= 30) {
-                    currentLang = (currentLang == LANG_ES) ? LANG_EN : LANG_ES;
-                    prefs.begin("cyd-cinema", false);
-                    prefs.putUChar("lang", (uint8_t)currentLang);
-                    prefs.end();
-                    updateCalendarAndSeason();
-                    displayMovie(currentMovieIdx);
-                }
-                // 2. Tocar el boton de MODO [AUTO] / [CINE] / [MUS] (X=220..258, Y<=28)
-                else if (touchX >= 220 && touchX <= 258 && touchY <= 30) {
+                // 1. Tocar el boton de MODO [AUTO] / [CINE] / [MUS] en la barra inferior (X=124..164, Y>=205)
+                if (touchX >= 124 && touchX <= 164 && touchY >= 205) {
                     currentMode = (AppMode)((currentMode + 1) % 3);
                     prefs.begin("cyd-cinema", false);
                     prefs.putUChar("mode", (uint8_t)currentMode);
@@ -580,7 +571,16 @@ void loop() {
                         displayMovie(currentMovieIdx);
                     }
                 }
-                // 3. Tocar la mitad izquierda (poster o boton inferior):
+                // 2. Tocar el boton de IDIOMA [ES] / [EN] (en barra inferior X=165..205 o esquina superior derecha X>=260, Y<=35)
+                else if ((touchX >= 165 && touchX <= 205 && touchY >= 205) || (touchX >= 260 && touchY <= 35)) {
+                    currentLang = (currentLang == LANG_ES) ? LANG_EN : LANG_ES;
+                    prefs.begin("cyd-cinema", false);
+                    prefs.putUChar("lang", (uint8_t)currentLang);
+                    prefs.end();
+                    updateCalendarAndSeason();
+                    displayMovie(currentMovieIdx);
+                }
+                // 3. Tocar la mitad izquierda (poster o boton inferior bajo poster):
                 // Alternar: Cita -> Curiosidad -> Sinopsis
                 else if (touchX < (POSTER_X + POSTER_W + 12)) {
                     currentView = (MovieView)((currentView + 1) % 3);

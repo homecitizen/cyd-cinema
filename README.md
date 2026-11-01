@@ -1,4 +1,4 @@
-# 🎬 CYD Cinema — Recomendador de Cine Estilo Letterboxd
+# 🎬 LetterDeck — Smart Cinema & Music Desk Display
 ## ESP32-2432S028 (CYD 2.8" ST7789 320×240 + Touch XPT2046)
 
 Dispositivo de sobremesa autónomo que muestra recomendaciones de películas, pósters oficiales de alta calidad, fichas técnicas y citas célebres con la estética oscura y minimalista de **Letterboxd**.
