@@ -15,6 +15,7 @@
 #define CLR_LB_WHITE       0xFFFF    // #FFFFFF (Blanco puro texto)
 #define CLR_LB_MUTED       0x9CD3    // #9AB0BE (Texto secundario legible)
 #define CLR_LB_GOLD        0xFE60    // #FFCC00 (Dorado / Estrellas)
+#define CLR_LB_PINK        0xFB56    // #FA2D48 (Rosa Apple Music)
 
 // Dimensiones de la caratula/poster (108x162 px exactos)
 #define POSTER_X           8
@@ -27,6 +28,13 @@ enum MovieView {
     VIEW_QUOTE = 0,      // Frase mitica
     VIEW_CURIOSITY = 1,  // Curiosidad y anecdotas de rodaje
     VIEW_SYNOPSIS = 2    // Sinopsis del argumento
+};
+
+// Modos de funcionamiento del dispositivo
+enum AppMode {
+    APP_MODE_AUTO = 0,    // Hibrido: Cine en reposo; si el PC envia musica pasa a Apple Music; al pausar vuelve a Cine
+    APP_MODE_CINEMA = 1,  // Fijo: Solo recomendaciones de Cine (Letterboxd)
+    APP_MODE_MUSIC = 2    // Fijo: Solo reproductor Apple Music
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -121,16 +129,17 @@ public:
 
         String cTag = cleanText(tag);
         int len = cTag.length();
-        int badgeW = len * 6 + 14;
+        int badgeW = len * 6 + 12;
         tft.fillRoundRect(x, y, badgeW, 16, 4, CLR_LB_CARD);
         tft.drawRoundRect(x, y, badgeW, 16, 4, tagColor);
 
         tft.setTextColor(tagColor, CLR_LB_CARD);
         tft.setTextDatum(TL_DATUM);
-        tft.drawString(cTag, x + 7, y + 2, 1);
+        tft.drawString(cTag, x + 6, y + 2, 1);
     }
 
-    void renderMovie(const MovieItem& movie, MovieView view, const char* dateStr, bool isFilmOfTheDay) {
+    void renderMovie(const MovieItem& movie, MovieView view, const char* dateStr,
+                     bool isFilmOfTheDay, AppLanguage lang, AppMode mode) {
         // ── 1. ZONA INFERIOR BAJO EL POSTER (X=8..116, Y=172..238) ────────
         // A) Logotipo Letterboxd (3 puntos) + texto
         int lx = 14;
@@ -162,11 +171,11 @@ public:
         tft.setTextColor(CLR_LB_MUTED, CLR_LB_CARD);
         tft.setTextDatum(MC_DATUM);
         if (view == VIEW_QUOTE) {
-            tft.drawString("[Curiosidad]", 10 + 52, btnY + 9, 1);
+            tft.drawString((lang == LANG_EN) ? "[Trivia]" : "[Curiosidad]", 10 + 52, btnY + 9, 1);
         } else if (view == VIEW_CURIOSITY) {
-            tft.drawString("[Sinopsis]", 10 + 52, btnY + 9, 1);
+            tft.drawString((lang == LANG_EN) ? "[Synopsis]" : "[Sinopsis]", 10 + 52, btnY + 9, 1);
         } else {
-            tft.drawString("[Cita]", 10 + 52, btnY + 9, 1);
+            tft.drawString((lang == LANG_EN) ? "[Quote]" : "[Cita]", 10 + 52, btnY + 9, 1);
         }
 
         // ── 2. COLUMNA DERECHA DE DETALLES (X=128..316) ─────────────────────
@@ -175,16 +184,34 @@ public:
 
         // Badge tematico o insignia "PELICULA DEL DIA"
         if (isFilmOfTheDay) {
-            drawBadge(rx, 8, "PELICULA DEL DIA", THEME_ANNIVERSARY);
+            const char* fotd = (lang == LANG_EN) ? "FILM OF THE DAY" : "PELICULA DEL DIA";
+            drawBadge(rx, 8, fotd, THEME_ANNIVERSARY);
         } else {
-            drawBadge(rx, 8, movie.tag, movie.theme);
+            drawBadge(rx, 8, movie.getTag(lang), movie.theme);
         }
+
+        // Pildora de Modo (X=230..256): [AUTO] / [CINE] / [MUS]
+        const char* modeLabel = (mode == APP_MODE_AUTO) ? "AUTO" : (mode == APP_MODE_CINEMA ? "CINE" : "MUS");
+        uint16_t modeColor = (mode == APP_MODE_AUTO) ? CLR_LB_CYAN : (mode == APP_MODE_CINEMA ? CLR_LB_GREEN : CLR_LB_PINK);
+        tft.fillRoundRect(228, 8, 30, 16, 3, CLR_LB_CARD);
+        tft.drawRoundRect(228, 8, 30, 16, 3, modeColor);
+        tft.setTextColor(modeColor, CLR_LB_CARD);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString(modeLabel, 228 + 15, 8 + 8, 1);
+
+        // Pildora de Idioma (X=262..286): [ES] o [EN] (tappable!)
+        const char* langLabel = (lang == LANG_EN) ? "EN" : "ES";
+        tft.fillRoundRect(262, 8, 22, 16, 3, CLR_LB_CARD);
+        tft.drawRoundRect(262, 8, 22, 16, 3, CLR_LB_BORDER);
+        tft.setTextColor(CLR_LB_WHITE, CLR_LB_CARD);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString(langLabel, 262 + 11, 8 + 8, 1);
 
         // Fecha actual en la esquina superior derecha (ej: "31 OCT")
         if (dateStr && strlen(dateStr) > 0) {
             tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
             tft.setTextDatum(TR_DATUM);
-            tft.drawString(dateStr, 320 - 8, 10, 1);
+            tft.drawString(dateStr, 320 - 4, 10, 1);
         }
 
         // Titulo de la pelicula (negrita Font 4)
@@ -209,9 +236,10 @@ public:
         tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
         tft.drawString(metaStr, rx, 78, 2);
 
-        // Genero
+        // Genero segun idioma
         char genreStr[60];
-        snprintf(genreStr, sizeof(genreStr), "Genero: %s", cleanText(movie.genre).c_str());
+        const char* gPrefix = (lang == LANG_EN) ? "Genre" : "Genero";
+        snprintf(genreStr, sizeof(genreStr), "%s: %s", gPrefix, cleanText(movie.getGenre(lang)).c_str());
         tft.drawString(genreStr, rx, 96, 2);
 
         // Linea divisoria
@@ -219,71 +247,30 @@ public:
 
         // Vista seleccionada: Cita, Curiosidad o Sinopsis
         if (view == VIEW_QUOTE) {
-            drawQuoteView(rx, 124, rw, movie.quote);
+            const char* qHead = (lang == LANG_EN) ? "ICONIC QUOTE:" : "CITA CELEBRE:";
+            drawTextView(rx, 124, rw, qHead, CLR_LB_CYAN, movie.getQuote(lang), CLR_LB_WHITE);
         } else if (view == VIEW_CURIOSITY) {
-            drawCuriosityView(rx, 124, rw, movie.curiosity);
+            const char* cHead = (lang == LANG_EN) ? "* BEHIND THE SCENES:" : "* CURIOSIDAD DE RODAJE:";
+            drawTextView(rx, 124, rw, cHead, CLR_LB_GOLD, movie.getCuriosity(lang), CLR_LB_WHITE);
         } else {
-            drawSynopsisView(rx, 124, rw, movie.synopsis);
+            const char* sHead = (lang == LANG_EN) ? "SYNOPSIS:" : "SINOPSIS:";
+            drawTextView(rx, 124, rw, sHead, CLR_LB_GREEN, movie.getSynopsis(lang), CLR_LB_MUTED);
         }
 
         // Indicador siguiente en esquina inferior derecha
         tft.setTextColor(CLR_LB_BORDER, CLR_LB_BG);
         tft.setTextDatum(TR_DATUM);
-        tft.drawString("Siguiente >", 320 - 8, 222, 1);
+        tft.drawString((lang == LANG_EN) ? "Next >" : "Siguiente >", 320 - 8, 222, 1);
     }
 
-    void drawQuoteView(int x, int y, int w, const char* quote) {
-        tft.setTextColor(CLR_LB_CYAN, CLR_LB_BG);
+    void drawTextView(int x, int y, int w, const char* header, uint16_t hColor,
+                      const char* content, uint16_t cColor) {
+        tft.setTextColor(hColor, CLR_LB_BG);
         tft.setTextDatum(TL_DATUM);
-        tft.drawString("CITA CELEBRE:", x, y, 1);
+        tft.drawString(header, x, y, 1);
 
-        tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
-        String q = cleanText(quote);
-        
-        int curY = y + 15;
-        while (q.length() > 0 && curY < 215) {
-            if (q.length() <= 24) {
-                tft.drawString(q, x, curY, 2);
-                break;
-            }
-            int sp = q.lastIndexOf(' ', 24);
-            if (sp <= 0) sp = 24;
-            tft.drawString(q.substring(0, sp), x, curY, 2);
-            q = q.substring(sp);
-            q.trim();
-            curY += 18;
-        }
-    }
-
-    void drawCuriosityView(int x, int y, int w, const char* cur) {
-        tft.setTextColor(CLR_LB_GOLD, CLR_LB_BG);
-        tft.setTextDatum(TL_DATUM);
-        tft.drawString("* CURIOSIDAD DE RODAJE:", x, y, 1);
-
-        tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
-        String c = cleanText(cur);
-        int curY = y + 14;
-        while (c.length() > 0 && curY < 218) {
-            if (c.length() <= 26) {
-                tft.drawString(c, x, curY, 2);
-                break;
-            }
-            int sp = c.lastIndexOf(' ', 26);
-            if (sp <= 0) sp = 26;
-            tft.drawString(c.substring(0, sp), x, curY, 2);
-            c = c.substring(sp);
-            c.trim();
-            curY += 16;
-        }
-    }
-
-    void drawSynopsisView(int x, int y, int w, const char* syn) {
-        tft.setTextColor(CLR_LB_GREEN, CLR_LB_BG);
-        tft.setTextDatum(TL_DATUM);
-        tft.drawString("SINOPSIS:", x, y, 1);
-
-        tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
-        String s = cleanText(syn);
+        tft.setTextColor(cColor, CLR_LB_BG);
+        String s = cleanText(content);
         int curY = y + 14;
         while (s.length() > 0 && curY < 218) {
             if (s.length() <= 26) {
@@ -297,6 +284,33 @@ public:
             s.trim();
             curY += 16;
         }
+    }
+
+    void showMusicIdleScreen(AppLanguage lang) {
+        tft.fillScreen(CLR_LB_BG);
+        
+        // Cabecera Apple Music
+        tft.setTextColor(CLR_LB_PINK, CLR_LB_BG);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString("* Apple Music *", 160, 70, 4);
+
+        tft.setTextColor(CLR_LB_WHITE, CLR_LB_BG);
+        if (lang == LANG_EN) {
+            tft.drawString("Waiting for PC connection...", 160, 115, 2);
+            tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
+            tft.drawString("Run 'py nowplaying.py' on Windows", 160, 140, 2);
+        } else {
+            tft.drawString("Esperando conexion del PC...", 160, 115, 2);
+            tft.setTextColor(CLR_LB_MUTED, CLR_LB_BG);
+            tft.drawString("Ejecuta 'py nowplaying.py' en Windows", 160, 140, 2);
+        }
+
+        // Boton para volver a modo cine
+        tft.fillRoundRect(100, 185, 120, 28, 6, CLR_LB_CARD);
+        tft.drawRoundRect(100, 185, 120, 28, 6, CLR_LB_GREEN);
+        tft.setTextColor(CLR_LB_GREEN, CLR_LB_CARD);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString((lang == LANG_EN) ? "Switch to Cinema" : "Cambiar a Cine", 160, 199, 2);
     }
 
 private:

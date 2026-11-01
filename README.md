@@ -17,16 +17,19 @@ Dispositivo de sobremesa autónomo que muestra recomendaciones de películas, p�
    - ⭐ **Grandes Hitos y Top Letterboxd** *(Resto del año)*: *Pulp Fiction, The Matrix, Interstellar, Blade Runner 2049, Fight Club...*
 2. **Curiosidades y Anécdotas de Rodaje**:
    - Cada película incluye datos reales de producción, secretos de set y anécdotas de rodaje (por ejemplo, las hachas reales de Kubrick en *The Shining*, la máscara del Capitán Kirk de 2$ en *Halloween*, las llamadas reales del doblador en *Scream* o el chocolate usado en la ducha de *Psycho*).
-3. **Estética 100% Letterboxd**:
-   - Paleta de color oscura: fondo carbón `#14181C`, paneles `#1F252B`, verde `#00E054`, naranja `#FF8000` y cian `#40BCF4`.
-   - Valoración por estrellas (ej: `★ 4.3 / 5`).
-   - Logotipo de los tres círculos icónicos de Letterboxd.
-4. **Pósters Oficiales TMDb Integrados**:
+3. **Soporte Bilingüe Español / Inglés (`ES` / `EN`)**:
+   - Selector táctil directo en la cabecera `[ES | EN]` y mediante la web Wi-Fi.
+   - Guardado permanente en memoria interna NVRAM.
+   - En inglés muestra las citas originales de Hollywood (*"Here's Johnny!"*, *"I'm gonna make him an offer he can't refuse"*), curiosidades en inglés y etiquetas internacionales.
+4. **Modo Dual Música + Cine (Apple Music)**:
+   - **Híbrido Inteligente (`AUTO`)**: La pantalla muestra las recomendaciones de cine; al reproducir música en el PC con `nowplaying.py`, cambia en milisegundos a la interfaz de Apple Music con controles táctiles (play/pausa, progreso, volumen). Al pausar la música, regresa suavemente a modo Cine.
+   - **Selector de Modo en pantalla (`[AUTO]` / `[CINE]` / `[MUS]`)**: Permite fijar el modo deseado o configurarlo desde `http://<IP_CYD>`.
+5. **Pósters Oficiales TMDb Integrados**:
    - Pósters oficiales de $108 \times 162$ px renderizados en Flash con `TJpg_Decoder` en menos de 18 ms.
-5. **Navegación Táctil e Inteligente**:
+6. **Navegación Táctil e Inteligente**:
    - **Tocar la mitad izquierda (póster / botón inferior)**: Alterna cíclicamente entre **Cita Célebre** ➔ **Curiosidad de Rodaje** ➔ **Sinopsis**.
    - **Tocar la mitad derecha**: Pasa inmediatamente a la siguiente recomendación.
-   - **Rotación automática inteligente**: Muestra la Cita, tras el intervalo revela la Curiosidad de rodaje y luego avanza a la siguiente película.
+   - **Tocar la esquina superior derecha**: Conmuta idioma `[ES/EN]` y modo de funcionamiento.
 
 ---
 
